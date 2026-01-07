@@ -1,60 +1,52 @@
--- MainLoader.lua
--- Menu principal + PVP + ESP intégré (fonctionnel, client-side)
+-- MainMenu.lua
+-- Menu principal + sous-menu PVP
+-- Toggle: Right Ctrl
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
--- ===== CONFIG GLOBALE ESP =====
-_G.ESP_CONFIG = {
-    Enabled = false,
-    Players = {}, -- joueurName = true/false
-    Color = Color3.fromRGB(255,0,0) -- couleur par défaut rouge
+-- ===== CONFIG =====
+local Modules = {
+	ESP = false,
+	SilentAim = false
 }
 
--- Remplir tous les joueurs par défaut actif
-for _, p in pairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer then
-        _G.ESP_CONFIG.Players[p.Name] = true
-    end
-end
-
-Players.PlayerAdded:Connect(function(p)
-    if p ~= LocalPlayer then
-        _G.ESP_CONFIG.Players[p.Name] = true
-    end
-end)
+_G.ESP_CONFIG = {
+	Color = Color3.fromRGB(255, 0, 0)
+}
 
 -- ===== GUI =====
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "LoucraftMenu"
 ScreenGui.Parent = game.CoreGui
 
-local function createButton(parent,text,posY)
-    local btn = Instance.new("TextButton",parent)
-    btn.Size = UDim2.new(0.85,0,0,45)
-    btn.Position = UDim2.new(0.075,0,0,posY)
-    btn.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.Text = text
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 18
-    Instance.new("UICorner",btn)
-    return btn
+-- ===== Fonction bouton =====
+local function createButton(parent, text, posY)
+	local btn = Instance.new("TextButton", parent)
+	btn.Size = UDim2.new(0.85, 0, 0, 45)
+	btn.Position = UDim2.new(0.075, 0, 0, posY)
+	btn.BackgroundColor3 = Color3.fromRGB(45,45,45)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Text = text
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 18
+	btn.AutoButtonColor = true
+	Instance.new("UICorner", btn)
+	return btn
 end
 
--- ===== FRAME PRINCIPAL =====
-local MainFrame = Instance.new("Frame",ScreenGui)
-MainFrame.Size = UDim2.new(0,400,0,420)
-MainFrame.Position = UDim2.new(0,50,0,120)
+-- ===== Frame principal =====
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 400, 0, 420)
+MainFrame.Position = UDim2.new(0, 50, 0, 120)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
 MainFrame.Active = true
 MainFrame.Draggable = true
-Instance.new("UICorner",MainFrame)
+Instance.new("UICorner", MainFrame)
 
-local Title = Instance.new("TextLabel",MainFrame)
+-- Titre
+local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1,0,0,50)
 Title.BackgroundTransparency = 1
 Title.Text = "MENU PRINCIPAL"
@@ -62,19 +54,22 @@ Title.TextColor3 = Color3.new(1,1,1)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 24
 
-local btnPVP = createButton(MainFrame,"PVP  →",80)
+-- Boutons catégories
+local btnPVP = createButton(MainFrame, "PVP  →", 80)
+local btnFarm = createButton(MainFrame, "Farm  →", 140)
 
--- ===== FRAME PVP =====
-local PVPFrame = Instance.new("Frame",ScreenGui)
+-- ===== Frame PVP =====
+local PVPFrame = Instance.new("Frame", ScreenGui)
 PVPFrame.Size = MainFrame.Size
 PVPFrame.Position = MainFrame.Position
 PVPFrame.BackgroundColor3 = Color3.fromRGB(22,22,22)
 PVPFrame.Visible = false
 PVPFrame.Active = true
 PVPFrame.Draggable = true
-Instance.new("UICorner",PVPFrame)
+Instance.new("UICorner", PVPFrame)
 
-local PVPTitle = Instance.new("TextLabel",PVPFrame)
+-- Titre PVP
+local PVPTitle = Instance.new("TextLabel", PVPFrame)
 PVPTitle.Size = UDim2.new(1,0,0,50)
 PVPTitle.BackgroundTransparency = 1
 PVPTitle.Text = "MENU PVP"
@@ -82,7 +77,8 @@ PVPTitle.TextColor3 = Color3.new(1,1,1)
 PVPTitle.Font = Enum.Font.GothamBold
 PVPTitle.TextSize = 24
 
-local BackBtn = Instance.new("TextButton",PVPFrame)
+-- Bouton back
+local BackBtn = Instance.new("TextButton", PVPFrame)
 BackBtn.Size = UDim2.new(0,60,0,35)
 BackBtn.Position = UDim2.new(0,10,0,8)
 BackBtn.Text = "←"
@@ -90,12 +86,12 @@ BackBtn.Font = Enum.Font.GothamBold
 BackBtn.TextSize = 22
 BackBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
 BackBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner",BackBtn)
+Instance.new("UICorner", BackBtn)
 
--- ===== ESP =====
-local btnESP = createButton(PVPFrame,"ESP : OFF",80)
+-- ===== LIGNE ESP =====
+local btnESP = createButton(PVPFrame, "ESP : OFF", 80)
 
-local btnESPConfig = Instance.new("TextButton",PVPFrame)
+local btnESPConfig = Instance.new("TextButton", PVPFrame)
 btnESPConfig.Size = UDim2.new(0,45,0,45)
 btnESPConfig.Position = UDim2.new(1,-55,0,80)
 btnESPConfig.Text = "⚙"
@@ -103,38 +99,59 @@ btnESPConfig.Font = Enum.Font.GothamBold
 btnESPConfig.TextSize = 22
 btnESPConfig.BackgroundColor3 = Color3.fromRGB(60,60,60)
 btnESPConfig.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner",btnESPConfig)
+Instance.new("UICorner", btnESPConfig)
+
+-- ===== LIGNE SILENT AIM =====
+local btnSilent = createButton(PVPFrame, "Silent Aim : OFF", 140)
+
+local btnSilentConfig = btnESPConfig:Clone()
+btnSilentConfig.Parent = PVPFrame
+btnSilentConfig.Position = UDim2.new(1,-55,0,140)
 
 -- ===== NAVIGATION =====
 btnPVP.MouseButton1Click:Connect(function()
-    MainFrame.Visible = false
-    PVPFrame.Visible = true
+	MainFrame.Visible = false
+	PVPFrame.Visible = true
 end)
 
 BackBtn.MouseButton1Click:Connect(function()
-    PVPFrame.Visible = false
-    MainFrame.Visible = true
+	PVPFrame.Visible = false
+	MainFrame.Visible = true
 end)
 
--- ===== FRAME CONFIG ESP =====
-local ESPFrame = Instance.new("Frame",ScreenGui)
-ESPFrame.Size = UDim2.new(0,300,0,400)
-ESPFrame.Position = UDim2.new(0,470,0,120)
-ESPFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+-- ===== ESP CONFIGURATION FRAME =====
+local ESPFrame = Instance.new("Frame", PVPFrame)
+ESPFrame.Size = UDim2.new(0, 260, 0, 260)
+ESPFrame.Position = UDim2.new(0, 10, 0, 140)
+ESPFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 ESPFrame.Visible = false
-ESPFrame.Active = true
-ESPFrame.Draggable = true
-Instance.new("UICorner",ESPFrame)
+Instance.new("UICorner", ESPFrame)
 
-local ESPTitle = Instance.new("TextLabel",ESPFrame)
+-- Titre config ESP
+local ESPTitle = Instance.new("TextLabel", ESPFrame)
 ESPTitle.Size = UDim2.new(1,0,0,40)
 ESPTitle.BackgroundTransparency = 1
-ESPTitle.Text = "ESP CONFIG"
+ESPTitle.Text = "Configuration ESP"
 ESPTitle.TextColor3 = Color3.new(1,1,1)
 ESPTitle.Font = Enum.Font.GothamBold
-ESPTitle.TextSize = 18
+ESPTitle.TextSize = 22
 
--- HEX color input
+-- Bouton fermeture config
+local CloseConfigBtn = Instance.new("TextButton", ESPFrame)
+CloseConfigBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseConfigBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseConfigBtn.Text = "✕"
+CloseConfigBtn.Font = Enum.Font.GothamBold
+CloseConfigBtn.TextSize = 18
+CloseConfigBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+CloseConfigBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", CloseConfigBtn)
+
+CloseConfigBtn.MouseButton1Click:Connect(function()
+	ESPFrame.Visible = false
+end)
+
+-- ColorBox (HEX)
 local ColorBox = Instance.new("TextBox",ESPFrame)
 ColorBox.Size = UDim2.new(1,-70,0,35)
 ColorBox.Position = UDim2.new(0,10,0,50)
@@ -146,172 +163,249 @@ ColorBox.Font = Enum.Font.Gotham
 ColorBox.TextSize = 16
 Instance.new("UICorner",ColorBox)
 
+-- Color Preview (clic ouvre palette)
 local ColorPreview = Instance.new("Frame",ESPFrame)
 ColorPreview.Size = UDim2.new(0,50,0,35)
 ColorPreview.Position = UDim2.new(1,-60,0,50)
 ColorPreview.BackgroundColor3 = _G.ESP_CONFIG.Color
 Instance.new("UICorner",ColorPreview)
 
-local function hexToColor3(hex)
-    hex = hex:gsub("#","")
-    if #hex ~= 6 then return nil end
-    local r = tonumber(hex:sub(1,2),16)
-    local g = tonumber(hex:sub(3,4),16)
-    local b = tonumber(hex:sub(5,6),16)
-    if not r or not g or not b then return nil end
-    return Color3.fromRGB(r,g,b)
+-- ======= Palette Couleur =======
+local PaletteFrame = Instance.new("Frame", ESPFrame)
+PaletteFrame.Size = UDim2.new(0, 260, 0, 200)
+PaletteFrame.Position = UDim2.new(0, 10, 0, 95)
+PaletteFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+PaletteFrame.Visible = false
+Instance.new("UICorner", PaletteFrame)
+
+local HueBar = Instance.new("ImageLabel", PaletteFrame)
+HueBar.Size = UDim2.new(1, -40, 0, 30)
+HueBar.Position = UDim2.new(0, 10, 0, 10)
+HueBar.BackgroundTransparency = 1
+HueBar.Image = "rbxassetid://7732516505"
+HueBar.ScaleType = Enum.ScaleType.Stretch
+
+local HueSelector = Instance.new("Frame", HueBar)
+HueSelector.Size = UDim2.new(0, 5, 1, 0)
+HueSelector.BackgroundColor3 = Color3.new(1,1,1)
+HueSelector.BorderSizePixel = 0
+HueSelector.Position = UDim2.new(0, 0, 0, 0)
+
+local SVSquare = Instance.new("Frame", PaletteFrame)
+SVSquare.Size = UDim2.new(1, -20, 1, -60)
+SVSquare.Position = UDim2.new(0, 10, 0, 50)
+SVSquare.BackgroundColor3 = Color3.new(1,0,0)
+Instance.new("UICorner", SVSquare)
+
+local SVGradientWhite = Instance.new("UIGradient", SVSquare)
+SVGradientWhite.Rotation = 0
+SVGradientWhite.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.new(1,1,1)),
+	ColorSequenceKeypoint.new(1, Color3.new(1,1,1,0))
+}
+
+local SVGradientBlack = Instance.new("UIGradient", SVSquare)
+SVGradientBlack.Rotation = 90
+SVGradientBlack.Color = ColorSequence.new{
+	ColorSequenceKeypoint.new(0, Color3.new(0,0,0,0)),
+	ColorSequenceKeypoint.new(1, Color3.new(0,0,0))
+}
+
+local SVSelector = Instance.new("Frame", SVSquare)
+SVSelector.Size = UDim2.new(0, 10, 0, 10)
+SVSelector.BackgroundColor3 = Color3.new(1,1,1)
+SVSelector.BorderColor3 = Color3.new(0,0,0)
+SVSelector.BorderSizePixel = 2
+SVSelector.AnchorPoint = Vector2.new(0.5, 0.5)
+SVSelector.Position = UDim2.new(1, 0, 0, 0)
+
+-- HSV conversion functions
+local function RGBtoHSV(color)
+	local r, g, b = color.R, color.G, color.B
+	local max = math.max(r, g, b)
+	local min = math.min(r, g, b)
+	local delta = max - min
+
+	local h, s, v
+	v = max
+
+	if max == 0 then
+		s = 0
+	else
+		s = delta / max
+	end
+
+	if delta == 0 then
+		h = 0
+	else
+		if max == r then
+			h = (g - b) / delta
+		elseif max == g then
+			h = 2 + (b - r) / delta
+		else
+			h = 4 + (r - g) / delta
+		end
+
+		h = h * 60
+		if h < 0 then
+			h = h + 360
+		end
+	end
+
+	return h, s, v
 end
 
-ColorBox.FocusLost:Connect(function()
-    local color = hexToColor3(ColorBox.Text)
-    if color then
-        _G.ESP_CONFIG.Color = color
-        ColorPreview.BackgroundColor3 = color
-    end
-end)
+local function HSVtoRGB(h, s, v)
+	local c = v * s
+	local x = c * (1 - math.abs((h / 60) % 2 - 1))
+	local m = v - c
 
--- ===== LISTE JOUEURS =====
-local list = Instance.new("ScrollingFrame",ESPFrame)
-list.Position = UDim2.new(0,10,0,95)
-list.Size = UDim2.new(1,-20,1,-105)
-list.CanvasSize = UDim2.new(0,0,0,0)
-list.ScrollBarImageTransparency = 0.4
+	local r, g, b
 
-local layout = Instance.new("UIListLayout",list)
-layout.Padding = UDim.new(0,6)
+	if h < 60 then
+		r, g, b = c, x, 0
+	elseif h < 120 then
+		r, g, b = x, c, 0
+	elseif h < 180 then
+		r, g, b = 0, c, x
+	elseif h < 240 then
+		r, g, b = 0, x, c
+	elseif h < 300 then
+		r, g, b = x, 0, c
+	else
+		r, g, b = c, 0, x
+	end
 
-local function addPlayer(player)
-    if player == LocalPlayer then return end
-    local btn = Instance.new("TextButton",list)
-    btn.Size = UDim2.new(1,0,0,38)
-    btn.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 16
-    btn.Text = player.Name.." [ON]"
-    Instance.new("UICorner",btn)
-
-    btn.MouseButton1Click:Connect(function()
-        _G.ESP_CONFIG.Players[player.Name] = not _G.ESP_CONFIG.Players[player.Name]
-        btn.Text = player.Name..(_G.ESP_CONFIG.Players[player.Name] and " [ON]" or " [OFF]")
-    end)
+	return Color3.new(r + m, g + m, b + m)
 end
 
-for _, p in pairs(Players:GetPlayers()) do addPlayer(p) end
-Players.PlayerAdded:Connect(addPlayer)
-layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    list.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
-end)
+local hue, saturation, value = 0, 1, 1
 
-btnESPConfig.MouseButton1Click:Connect(function()
-    ESPFrame.Visible = not ESPFrame.Visible
-end)
-
--- ===== ESP LOGIC =====
-local ESP_CACHE = {}
-local function createESP(player)
-    if player == LocalPlayer then return end
-    if ESP_CACHE[player] then return end
-    if not player.Character then return end
-    local char = player.Character
-    local head = char:FindFirstChild("Head")
-    local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if not head or not humanoid then return end
-
-    local h = Instance.new("Highlight")
-    h.Name = "ESP_Highlight"
-    h.FillTransparency = 0.4
-    h.OutlineTransparency = 0
-    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    h.Parent = char
-
-    local b = Instance.new("BillboardGui")
-    b.Name = "ESP_Name"
-    b.Size = UDim2.new(0,200,0,50)
-    b.StudsOffset = Vector3.new(0,2.5,0)
-    b.AlwaysOnTop = true
-    b.Parent = head
-
-    local t = Instance.new("TextLabel")
-    t.Size = UDim2.new(1,0,0.6,0)
-    t.BackgroundTransparency = 1
-    t.TextScaled = true
-    t.TextStrokeTransparency = 0
-    t.Font = Enum.Font.GothamBold
-    t.Parent = b
-
-    local healthFrame = Instance.new("Frame")
-    healthFrame.Size = UDim2.new(1,0,0.2,0)
-    healthFrame.Position = UDim2.new(0,0,0.8,0)
-    healthFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
-    healthFrame.BorderSizePixel = 0
-    healthFrame.Parent = b
-
-    local healthBar = Instance.new("Frame")
-    healthBar.Size = UDim2.new(1,0,1,0)
-    healthBar.BackgroundColor3 = Color3.fromRGB(0,255,0)
-    healthBar.BorderSizePixel = 0
-    healthBar.Parent = healthFrame
-
-    ESP_CACHE[player] = {h=h,b=b,t=t,healthBar=healthBar,humanoid=humanoid}
+local function updateColorFromHSV()
+	local color = HSVtoRGB(hue, saturation, value)
+	_G.ESP_CONFIG.Color = color
+	ColorPreview.BackgroundColor3 = color
+	ColorBox.Text = string.format("#%02X%02X%02X",
+		math.floor(color.R * 255),
+		math.floor(color.G * 255),
+		math.floor(color.B * 255)
+	)
 end
 
-local function removeESP(player)
-    local data = ESP_CACHE[player]
-    if not data then return end
-    if data.h then data.h:Destroy() end
-    if data.b then data.b:Destroy() end
-    ESP_CACHE[player] = nil
-end
-
-RunService.RenderStepped:Connect(function()
-    if not _G.ESP_CONFIG then return end
-    for _,player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local enabled = _G.ESP_CONFIG.Enabled and _G.ESP_CONFIG.Players[player.Name] and player.Character
-            if enabled then
-                if not ESP_CACHE[player] then createESP(player) end
-                local esp = ESP_CACHE[player]
-                if esp then
-                    local distance = ""
-                    if LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
-                        distance = "["..math.floor((player.Character.PrimaryPart.Position - LocalPlayer.Character.PrimaryPart.Position).Magnitude).."m]"
-                    end
-                    esp.h.FillColor = _G.ESP_CONFIG.Color
-                    esp.t.Text = player.Name.." "..distance
-                    esp.t.TextColor3 = _G.ESP_CONFIG.Color
-
-                    local hp = esp.humanoid.Health/esp.humanoid.MaxHealth
-                    hp = math.clamp(hp,0,1)
-                    esp.healthBar.Size = UDim2.new(hp,0,1,0)
-                    if hp>0.6 then
-                        esp.healthBar.BackgroundColor3 = Color3.fromRGB(0,255,0)
-                    elseif hp>0.3 then
-                        esp.healthBar.BackgroundColor3 = Color3.fromRGB(255,255,0)
-                    else
-                        esp.healthBar.BackgroundColor3 = Color3.fromRGB(255,0,0)
-                    end
-                end
-            else
-                removeESP(player)
-            end
-        end
-    end
+local draggingHue = false
+HueBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingHue = true
+	end
+end)
+HueBar.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingHue = false
+	end
+end)
+HueBar.InputChanged:Connect(function(input)
+	if draggingHue and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local x = math.clamp(input.Position.X - HueBar.AbsolutePosition.X, 0, HueBar.AbsoluteSize.X)
+		hue = (x / HueBar.AbsoluteSize.X) * 360
+		HueSelector.Position = UDim2.new(x / HueBar.AbsoluteSize.X, 0, 0, 0)
+		SVSquare.BackgroundColor3 = HSVtoRGB(hue, 1, 1)
+		updateColorFromHSV()
+	end
 end)
 
--- ===== TOGGLE MENU =====
-UIS.InputBegan:Connect(function(input,gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.RightControl then
-        MainFrame.Visible = not MainFrame.Visible
-        PVPFrame.Visible = false
-    end
+local draggingSV = false
+SVSquare.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingSV = true
+	end
+end)
+SVSquare.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		draggingSV = false
+	end
+end)
+SVSquare.InputChanged:Connect(function(input)
+	if draggingSV and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local posX = math.clamp(input.Position.X - SVSquare.AbsolutePosition.X, 0, SVSquare.AbsoluteSize.X)
+		local posY = math.clamp(input.Position.Y - SVSquare.AbsolutePosition.Y, 0, SVSquare.AbsoluteSize.Y)
+		saturation = posX / SVSquare.AbsoluteSize.X
+		value = 1 - (posY / SVSquare.AbsoluteSize.Y)
+		SVSelector.Position = UDim2.new(saturation, 0, 1 - value, 0)
+		updateColorFromHSV()
+	end
 end)
 
--- ===== BOUTON ESP =====
+ColorPreview.Active = true
+ColorPreview.Selectable = true
+ColorPreview.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		PaletteFrame.Visible = not PaletteFrame.Visible
+	end
+end)
+
+-- Update from HEX textbox manually (support #RRGGBB)
+ColorBox.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		local hex = ColorBox.Text
+		if string.sub(hex, 1, 1) == "#" then
+			hex = string.sub(hex, 2)
+		end
+		if #hex == 6 then
+			local r = tonumber("0x"..hex:sub(1,2))
+			local g = tonumber("0x"..hex:sub(3,4))
+			local b = tonumber("0x"..hex:sub(5,6))
+			if r and g and b then
+				local color = Color3.fromRGB(r, g, b)
+				_G.ESP_CONFIG.Color = color
+				ColorPreview.BackgroundColor3 = color
+				hue, saturation, value = RGBtoHSV(color)
+				SVSquare.BackgroundColor3 = HSVtoRGB(hue, 1, 1)
+				HueSelector.Position = UDim2.new(hue/360, 0, 0, 0)
+				SVSelector.Position = UDim2.new(saturation, 0, 1 - value, 0)
+			end
+		end
+	end
+end)
+
+-- ===== ESP =====
 btnESP.MouseButton1Click:Connect(function()
-    _G.ESP_CONFIG.Enabled = not _G.ESP_CONFIG.Enabled
-    btnESP.Text = "ESP : "..(_G.ESP_CONFIG.Enabled and "ON" or "OFF")
+	Modules.ESP = not Modules.ESP
+	btnESP.Text = "ESP : " .. (Modules.ESP and "ON" or "OFF")
+
+	if Modules.ESP then
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/loucraft0493-lang/Roblox-ESP-Menu/main/Modules/PVP/ESP.lua"))()
+		ESPFrame.Visible = true
+	else
+		ESPFrame.Visible = false
+	end
 end)
 
-print("✅ MainMenu + ESP intégré chargé")
+-- ===== SILENT AIM =====
+btnSilent.MouseButton1Click:Connect(function()
+	Modules.SilentAim = not Modules.SilentAim
+	btnSilent.Text = "Silent Aim : " .. (Modules.SilentAim and "ON" or "OFF")
+
+	if Modules.SilentAim then
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/loucraft0493-lang/Roblox-ESP-Menu/main/Modules/PVP/SilentAim.lua"))()
+	end
+end)
+
+-- ===== Boutons config =====
+btnESPConfig.MouseButton1Click:Connect(function()
+	ESPFrame.Visible = not ESPFrame.Visible
+end)
+
+btnSilentConfig.MouseButton1Click:Connect(function()
+	print("Ouvrir config Silent Aim")
+end)
+
+-- ===== Toggle menu =====
+UIS.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	if input.KeyCode == Enum.KeyCode.RightControl then
+		MainFrame.Visible = not MainFrame.Visible
+		PVPFrame.Visible = false
+	end
+end)
+
+print("✅ MainMenu chargé")
