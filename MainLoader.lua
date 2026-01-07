@@ -1,5 +1,5 @@
 -- MainLoader.lua
--- Menu principal + ESP avec sélection joueurs + couleur HEX
+-- Menu principal + ESP avec sélection joueurs + couleur HEX + preview
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -135,7 +135,7 @@ ESPTitle.TextSize = 18
 
 -- ===== HEX COLOR INPUT =====
 local ColorBox = Instance.new("TextBox", ESPFrame)
-ColorBox.Size = UDim2.new(1,-20,0,35)
+ColorBox.Size = UDim2.new(1,-70,0,35)
 ColorBox.Position = UDim2.new(0,10,0,50)
 ColorBox.PlaceholderText = "#FF0000"
 ColorBox.Text = "#FF0000"
@@ -144,6 +144,13 @@ ColorBox.TextColor3 = Color3.new(1,1,1)
 ColorBox.Font = Enum.Font.Gotham
 ColorBox.TextSize = 16
 Instance.new("UICorner", ColorBox)
+
+-- Preview couleur
+local ColorPreview = Instance.new("Frame", ESPFrame)
+ColorPreview.Size = UDim2.new(0,50,0,35)
+ColorPreview.Position = UDim2.new(1,-60,0,50)
+ColorPreview.BackgroundColor3 = _G.ESP_CONFIG.Color
+Instance.new("UICorner", ColorPreview)
 
 -- HEX → Color3
 local function hexToColor3(hex)
@@ -160,6 +167,7 @@ ColorBox.FocusLost:Connect(function()
 	local color = hexToColor3(ColorBox.Text)
 	if color then
 		_G.ESP_CONFIG.Color = color
+		ColorPreview.BackgroundColor3 = color
 	end
 end)
 
@@ -216,4 +224,4 @@ UIS.InputBegan:Connect(function(input, gp)
 	end
 end)
 
-print("✅ MainLoader chargé (ESP menu + HEX)")
+print("✅ MainMenu chargé (ESP menu + HEX + preview)")
