@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 local ESP_CACHE = {}
 
@@ -13,7 +14,8 @@ local function createESP(player)
 
 	local char = player.Character
 	local head = char:FindFirstChild("Head")
-	if not head then return end
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if not head or not humanoid then return end
 
 	-- Highlight
 	local h = Instance.new("Highlight")
@@ -23,23 +25,38 @@ local function createESP(player)
 	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	h.Parent = char
 
-	-- NameTag
+	-- BillboardGui
 	local b = Instance.new("BillboardGui")
 	b.Name = "ESP_Name"
-	b.Size = UDim2.new(0,200,0,35)
+	b.Size = UDim2.new(0,200,0,50)
 	b.StudsOffset = Vector3.new(0,2.5,0)
 	b.AlwaysOnTop = true
 	b.Parent = head
 
+	-- Nom + distance
 	local t = Instance.new("TextLabel")
-	t.Size = UDim2.new(1,0,1,0)
+	t.Size = UDim2.new(1,0,0.6,0)
 	t.BackgroundTransparency = 1
 	t.TextScaled = true
 	t.TextStrokeTransparency = 0
 	t.Font = Enum.Font.GothamBold
 	t.Parent = b
 
-	ESP_CACHE[player] = {h = h, b = b, t = t}
+	-- Barre de vie
+	local healthFrame = Instance.new("Frame")
+	healthFrame.Size = UDim2.new(1,0,0.2,0)
+	healthFrame.Position = UDim2.new(0,0,0.8,0)
+	healthFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
+	healthFrame.BorderSizePixel = 0
+	healthFrame.Parent = b
+
+	local healthBar = Instance.new("Frame")
+	healthBar.Size = UDim2.new(1,0,1,0)
+	healthBar.BackgroundColor3 = Color3.fromRGB(0,255,0)
+	healthBar.BorderSizePixel = 0
+	healthBar.Parent = healthFrame
+
+	ESP_CACHE[player] = {h=h, b=b, t=t, healthBar=healthBar, humanoid=humanoid}
 end
 
 -- ❌ supprimer ESP
@@ -53,7 +70,7 @@ local function removeESP(player)
 	ESP_CACHE[player] = nil
 end
 
--- 🔄 BOUCLE CLIENT (clé du système)
+-- 🔄 BOUCLE CLIENT (ESP temps réel)
 RunService.RenderStepped:Connect(function()
 	if not _G.ESP_CONFIG then return end
 
@@ -64,12 +81,29 @@ RunService.RenderStepped:Connect(function()
 				and player.Character
 
 			if enabled then
-				createESP(player)
+				if not ESP_CACHE[player] then
+					createESP(player)
+				end
+
 				local esp = ESP_CACHE[player]
 				if esp then
+					-- Update couleur et nom
 					esp.h.FillColor = _G.ESP_CONFIG.Color
-					esp.t.Text = player.Name
+					esp.t.Text = player.Name.." ["..math.floor((player.Character.PrimaryPart.Position - LocalPlayer.Character.PrimaryPart.Position).Magnitude).."m]"
 					esp.t.TextColor3 = _G.ESP_CONFIG.Color
+
+					-- Barre de vie
+					if esp.humanoid and esp.healthBar then
+						local healthPercent = math.clamp(esp.humanoid.Health / esp.humanoid.MaxHealth, 0,1)
+						esp.healthBar.Size = UDim2.new(healthPercent,0,1,0)
+						if healthPercent > 0.6 then
+							esp.healthBar.BackgroundColor3 = Color3.fromRGB(0,255,0)
+						elseif healthPercent > 0.3 then
+							esp.healthBar.BackgroundColor3 = Color3.fromRGB(255,255,0)
+						else
+							esp.healthBar.BackgroundColor3 = Color3.fromRGB(255,0,0)
+						end
+					end
 				end
 			else
 				removeESP(player)
@@ -78,7 +112,6 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- cleanup
 Players.PlayerRemoving:Connect(removeESP)
 
-print("✅ ESP CLIENT chargé (temps réel)")
+print("✅ ESP CLIENT chargé (barre vie + distance + HEX)")
