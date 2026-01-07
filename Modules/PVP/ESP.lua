@@ -1,27 +1,40 @@
--- ESP.lua avec Hitbox
+-- ESP.lua complet R6 avec hitbox fixe écran
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
 local ESPObjects = {}
 
--- Fonction pour créer l'ESP pour un joueur
+-- Config globale
+if not _G.ESP_CONFIG then
+    _G.ESP_CONFIG = {
+        Color = Color3.fromRGB(255,0,0), -- couleur par défaut
+        SelectedPlayers = {} -- UserId -> true/false
+    }
+end
+
+-- Hitbox fixe en pixels
+local HITBOX_WIDTH = 50
+local HITBOX_HEIGHT = 100
+local HITBOX_OFFSET_Y = 3 -- hauteur au-dessus de la Head
+
+-- Création ESP pour un joueur
 local function createESP(player)
-    if ESPObjects[player] then return ESPObjects[player] end
+    if ESPObjects[player] then return end
     if not player.Character or not player.Character:FindFirstChild("Head") then return end
 
     local head = player.Character:FindFirstChild("Head")
 
+    -- BillboardGui fixe sur l'écran
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ESP"
     billboard.Adornee = head
-    billboard.Size = UDim2.new(0,150,0,70) -- un peu plus grand pour hitbox
-    billboard.StudsOffset = Vector3.new(0,2,0)
+    billboard.Size = UDim2.new(0,HITBOX_WIDTH,0,HITBOX_HEIGHT)
+    billboard.StudsOffset = Vector3.new(0,HITBOX_OFFSET_Y,0)
     billboard.AlwaysOnTop = true
     billboard.Parent = game.CoreGui
 
-    -- Hitbox (rectangle autour du joueur)
+    -- Hitbox rectangle
     local hitbox = Instance.new("Frame")
     hitbox.Size = UDim2.new(1,0,1,0)
     hitbox.Position = UDim2.new(0,0,0,0)
@@ -79,7 +92,7 @@ local function createESP(player)
     }
 end
 
--- Mettre à jour ESP en temps réel
+-- Mise à jour en temps réel
 local function updateESP()
     for player, data in pairs(ESPObjects) do
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") then
@@ -112,7 +125,7 @@ local function updateESP()
     end
 end
 
--- Ajouter joueur
+-- Ajout des joueurs
 local function setupPlayer(player)
     player.CharacterAdded:Connect(function()
         wait(0.1)
