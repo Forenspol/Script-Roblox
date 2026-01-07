@@ -1,117 +1,106 @@
--- ESP.lua (CLIENT SIDE, dynamique)
+-- ESP.lua
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
-local ESP_CACHE = {}
+local Drawing = Drawing -- en général accessible dans les scripts d’injection, sinon utiliser la lib compatible
 
--- 🔧 créer ESP
-local function createESP(player)
-	if player == LocalPlayer then return end
-	if ESP_CACHE[player] then return end
-	if not player.Character then return end
+local espObjects = {}
 
-	local char = player.Character
-	local head = char:FindFirstChild("Head")
-	local humanoid = char:FindFirstChildOfClass("Humanoid")
-	if not head or not humanoid then return end
-
-	-- Highlight
-	local h = Instance.new("Highlight")
-	h.Name = "ESP_Highlight"
-	h.FillTransparency = 0.4
-	h.OutlineTransparency = 0
-	h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	h.Parent = char
-
-	-- BillboardGui
-	local b = Instance.new("BillboardGui")
-	b.Name = "ESP_Name"
-	b.Size = UDim2.new(0,200,0,50)
-	b.StudsOffset = Vector3.new(0,2.5,0)
-	b.AlwaysOnTop = true
-	b.Parent = head
-
-	-- Nom + distance
-	local t = Instance.new("TextLabel")
-	t.Size = UDim2.new(1,0,0.6,0)
-	t.BackgroundTransparency = 1
-	t.TextScaled = true
-	t.TextStrokeTransparency = 0
-	t.Font = Enum.Font.GothamBold
-	t.Parent = b
-
-	-- Barre de vie
-	local healthFrame = Instance.new("Frame")
-	healthFrame.Size = UDim2.new(1,0,0.2,0)
-	healthFrame.Position = UDim2.new(0,0,0.8,0)
-	healthFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
-	healthFrame.BorderSizePixel = 0
-	healthFrame.Parent = b
-
-	local healthBar = Instance.new("Frame")
-	healthBar.Size = UDim2.new(1,0,1,0)
-	healthBar.BackgroundColor3 = Color3.fromRGB(0,255,0)
-	healthBar.BorderSizePixel = 0
-	healthBar.Parent = healthFrame
-
-	ESP_CACHE[player] = {h=h, b=b, t=t, healthBar=healthBar, humanoid=humanoid}
-end
-
--- ❌ supprimer ESP
-local function removeESP(player)
-	local data = ESP_CACHE[player]
-	if not data then return end
-
-	if data.h then data.h:Destroy() end
-	if data.b then data.b:Destroy() end
-
-	ESP_CACHE[player] = nil
-end
-
--- 🔄 BOUCLE CLIENT (ESP temps réel)
-RunService.RenderStepped:Connect(function()
-	if not _G.ESP_CONFIG then return end
-
-	for _, player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			local enabled = _G.ESP_CONFIG.Enabled
-				and _G.ESP_CONFIG.Players[player.Name]
-				and player.Character
-
-			if enabled then
-				if not ESP_CACHE[player] then
-					createESP(player)
-				end
-
-				local esp = ESP_CACHE[player]
-				if esp then
-					-- Update couleur et nom
-					esp.h.FillColor = _G.ESP_CONFIG.Color
-					esp.t.Text = player.Name.." ["..math.floor((player.Character.PrimaryPart.Position - LocalPlayer.Character.PrimaryPart.Position).Magnitude).."m]"
-					esp.t.TextColor3 = _G.ESP_CONFIG.Color
-
-					-- Barre de vie
-					if esp.humanoid and esp.healthBar then
-						local healthPercent = math.clamp(esp.humanoid.Health / esp.humanoid.MaxHealth, 0,1)
-						esp.healthBar.Size = UDim2.new(healthPercent,0,1,0)
-						if healthPercent > 0.6 then
-							esp.healthBar.BackgroundColor3 = Color3.fromRGB(0,255,0)
-						elseif healthPercent > 0.3 then
-							esp.healthBar.BackgroundColor3 = Color3.fromRGB(255,255,0)
-						else
-							esp.healthBar.BackgroundColor3 = Color3.fromRGB(255,0,0)
-						end
-					end
-				end
-			else
-				removeESP(player)
+-- Nettoyer les drawings précédents
+local function clearESP()
+	for _, obj in pairs(espObjects) do
+		for _, drawing in pairs(obj) do
+			if drawing and drawing.Remove then
+				drawing:Remove()
 			end
 		end
 	end
-end)
+	espObjects = {}
+end
 
-Players.PlayerRemoving:Connect(removeESP)
+local function createESPForPlayer(player)
+	local esp = {}
 
-print("✅ ESP CLIENT chargé (barre vie + distance + HEX)")
+	esp.box = Drawing.new("Square")
+	esp.box.Color = _G.ESP_CONFIG.Color
+	esp.box.Thickness = 1.5
+	esp.box.Transparency = 1
+	esp.box.Filled = false
+
+	esp.name = Drawing.new("Text")
+	esp.name.Center = true
+	esp.name.Outline = true
+	esp.name.Color = _G.ESP_CONFIG.Color
+	esp.name.Size = 16
+	esp.name.Font = 2
+
+	esp.healthBack = Drawing.new("Square")
+	esp.healthBack.Color = Color3.fromRGB(0,0,0)
+	esp.healthBack.Filled = true
+	esp.healthBack.Transparency = 0.5
+
+	esp.healthBar = Drawing.new("Square")
+	esp.healthBar.Color = _G.ESP_CONFIG.Color
+	esp.healthBar.Filled = true
+
+	esp.distanceText = Drawing.new("Text")
+	esp.distanceText.Center = true
+	esp.distanceText.Outline = true
+	esp.distanceText.Color = Color3.new(1,1,1)
+	esp.distanceText.Size = 14
+	esp.distanceText.Font = 2
+
+	return esp
+end
+
+local function updateESP()
+	local cameraCFrame = Camera.CFrame
+	local cameraPos = cameraCFrame.Position
+
+	for i, player in pairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
+			if _G.ESP_CONFIG.SelectedPlayers[player.UserId] then
+				if not espObjects[player] then
+					espObjects[player] = createESPForPlayer(player)
+				end
+
+				local esp = espObjects[player]
+				local rootPart = player.Character.HumanoidRootPart
+				local humanoid = player.Character.Humanoid
+
+				local pos, onScreen = Camera:WorldToViewportPoint(rootPart.Position)
+				if onScreen then
+					local size = Vector3.new(2, 5, 1) -- approx box size
+					local scale = 1 / pos.Z * 50
+					local boxSize = Vector2.new(100 * scale, 150 * scale)
+
+					-- Position du box
+					esp.box.Position = Vector2.new(pos.X - boxSize.X/2, pos.Y - boxSize.Y/2)
+					esp.box.Size = boxSize
+					esp.box.Color = _G.ESP_CONFIG.Color
+					esp.box.Visible = true
+
+					-- Nom joueur + distance
+					local distance = (cameraPos - rootPart.Position).Magnitude
+					esp.name.Position = Vector2.new(pos.X, pos.Y - boxSize.Y/2 - 20)
+					esp.name.Text = player.Name
+					esp.name.Color = _G.ESP_CONFIG.Color
+					esp.name.Visible = true
+
+					esp.distanceText.Position = Vector2.new(pos.X, pos.Y - boxSize.Y/2 - 5)
+					esp.distanceText.Text = string.format("%.0f m", distance)
+					esp.distanceText.Visible = true
+
+					-- Barre de vie (petite hauteur)
+					local healthPercent = humanoid.Health / humanoid.MaxHealth
+					healthPercent = math.clamp(healthPercent, 0, 1)
+
+					local barWidth = boxSize.X
+					local barHeight = 5 -- plus petite barre de vie
+					local barPosX = pos.X - barWidth/2
+					local barPosY = pos.Y + boxSize.Y/2 + 5
+
+					esp.healthBack.Position = Vector2.new(barPosX,
