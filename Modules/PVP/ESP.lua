@@ -1,9 +1,9 @@
--- ESP.lua optimisé
+-- ESP.lua avec Hitbox
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
--- Table pour stocker les ESP existants
 local ESPObjects = {}
 
 -- Fonction pour créer l'ESP pour un joueur
@@ -13,14 +13,23 @@ local function createESP(player)
 
     local head = player.Character:FindFirstChild("Head")
 
-    -- BillboardGui parenté à CoreGui
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ESP"
     billboard.Adornee = head
-    billboard.Size = UDim2.new(0,120,0,50)
+    billboard.Size = UDim2.new(0,150,0,70) -- un peu plus grand pour hitbox
     billboard.StudsOffset = Vector3.new(0,2,0)
     billboard.AlwaysOnTop = true
     billboard.Parent = game.CoreGui
+
+    -- Hitbox (rectangle autour du joueur)
+    local hitbox = Instance.new("Frame")
+    hitbox.Size = UDim2.new(1,0,1,0)
+    hitbox.Position = UDim2.new(0,0,0,0)
+    hitbox.BackgroundTransparency = 0.7
+    hitbox.BorderSizePixel = 2
+    hitbox.BorderColor3 = _G.ESP_CONFIG.Color
+    hitbox.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    hitbox.Parent = billboard
 
     -- Pseudo
     local nameLabel = Instance.new("TextLabel")
@@ -48,7 +57,7 @@ local function createESP(player)
 
     -- Barre de vie
     local healthBarBG = Instance.new("Frame")
-    healthBarBG.Size = UDim2.new(1,0,0,5) -- 5 px
+    healthBarBG.Size = UDim2.new(1,0,0,5)
     healthBarBG.Position = UDim2.new(0,0,1,-5)
     healthBarBG.BackgroundColor3 = Color3.fromRGB(50,50,50)
     healthBarBG.BorderSizePixel = 0
@@ -65,17 +74,17 @@ local function createESP(player)
         Billboard = billboard,
         NameLabel = nameLabel,
         DistLabel = distLabel,
-        HealthBar = healthBar
+        HealthBar = healthBar,
+        Hitbox = hitbox
     }
 end
 
--- Mettre à jour la visibilité et les infos de tous les ESP
+-- Mettre à jour ESP en temps réel
 local function updateESP()
     for player, data in pairs(ESPObjects) do
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") then
             local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
             local hrp = player.Character.HumanoidRootPart
-            -- Affichage selon sélection
             local enabled = _G.ESP_CONFIG.SelectedPlayers[player.UserId] == true
             data.Billboard.Enabled = enabled
             if enabled then
@@ -85,6 +94,7 @@ local function updateESP()
                 -- Couleur
                 data.NameLabel.TextColor3 = _G.ESP_CONFIG.Color
                 data.DistLabel.TextColor3 = _G.ESP_CONFIG.Color
+                data.Hitbox.BorderColor3 = _G.ESP_CONFIG.Color
                 -- Barre de vie
                 local healthRatio = humanoid.Health / humanoid.MaxHealth
                 data.HealthBar.Size = UDim2.new(healthRatio,0,1,0)
@@ -102,10 +112,10 @@ local function updateESP()
     end
 end
 
--- Ajouter un joueur à l'ESP quand il apparaît
+-- Ajouter joueur
 local function setupPlayer(player)
     player.CharacterAdded:Connect(function()
-        wait(0.1) -- petit délai pour que la Head existe
+        wait(0.1)
         createESP(player)
     end)
     if player.Character then
@@ -113,16 +123,11 @@ local function setupPlayer(player)
     end
 end
 
--- Connexion des joueurs existants et nouveaux
 for _, player in ipairs(Players:GetPlayers()) do
-    if player ~= LocalPlayer then
-        setupPlayer(player)
-    end
+    if player ~= LocalPlayer then setupPlayer(player) end
 end
 Players.PlayerAdded:Connect(function(player)
-    if player ~= LocalPlayer then
-        setupPlayer(player)
-    end
+    if player ~= LocalPlayer then setupPlayer(player) end
 end)
 Players.PlayerRemoving:Connect(function(player)
     if ESPObjects[player] then
@@ -131,5 +136,4 @@ Players.PlayerRemoving:Connect(function(player)
     end
 end)
 
--- Boucle principale pour mise à jour
 RunService.RenderStepped:Connect(updateESP)
