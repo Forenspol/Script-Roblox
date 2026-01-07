@@ -1,73 +1,55 @@
 -- SilentAim.lua
-
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
-local SilentAimEnabled = true
-local FOV = 250 -- rayon de détection en pixels
-local TargetPart = "Head" -- ou "HumanoidRootPart"
-
--- UI cercle FOV (optionnel)
-local circle = Drawing.new("Circle")
-circle.Color = Color3.fromRGB(255,255,255)
-circle.Thickness = 1
-circle.NumSides = 64
-circle.Radius = FOV
-circle.Filled = false
-circle.Visible = true
-circle.Transparency = 1
-
--- Trouver la cible la plus proche du curseur
-local function getClosestPlayer()
-	local closest = nil
-	local shortest = math.huge
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(TargetPart) then
-			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-			if humanoid and humanoid.Health > 0 then
-				local pos, onScreen = Camera:WorldToViewportPoint(player.Character[TargetPart].Position)
-				if onScreen then
-					local dist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-					if dist < shortest and dist < FOV then
-						shortest = dist
-						closest = player
-					end
-				end
-			end
-		end
-	end
-
-	return closest
+-- Config globale
+if not _G.SILENT_AIM_CONFIG then
+    _G.SILENT_AIM_CONFIG = {
+        Enabled = true,
+        TargetPart = "Head", -- "Head" ou "Torso"
+        SelectedPlayers = {} -- UserId -> true/false
+    }
 end
 
--- Hook du Raycast / Mouse.Hit
-local mt = getrawmetatable(game)
-local old = mt.__namecall
-setreadonly(mt, false)
+-- Fonction pour trouver le meilleur joueur
+local function getClosestTarget()
+    local closestDist = math.huge
+    local closestPlayer = nil
+    local localPos = workspace.CurrentCamera.CFrame.Position
 
-mt.__namecall = newcclosure(function(self, ...)
-	local args = {...}
-	local method = getnamecallmethod()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and _G.SILENT_AIM_CONFIG.SelectedPlayers[player.UserId] then
+            if player.Character and player.Character:FindFirstChild(_G.SILENT_AIM_CONFIG.TargetPart) then
+                local part = player.Character[_G.SILENT_AIM_CONFIG.TargetPart]
+                local dist = (part.Position - localPos).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
 
-	if SilentAimEnabled and method == "Raycast" then
-		local target = getClosestPlayer()
-		if target and target.Character and target.Character:FindFirstChild(TargetPart) then
-			args[2] = (target.Character[TargetPart].Position - args[1]).Unit * 1000
-			return old(self, unpack(args))
-		end
-	end
-
-	return old(self, ...)
+-- Hook du tir
+RunService.RenderStepped:Connect(function()
+    if not _G.SILENT_AIM_CONFIG.Enabled then return end
+    local target = getClosestTarget()
+    if target and target.Character and target.Character:FindFirstChild(_G.SILENT_AIM_CONFIG.TargetPart) then
+        local targetPos = target.Character[_G.SILENT_AIM_CONFIG.TargetPart].Position
+        -- On force le mouse position vers le target
+        local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(targetPos)
+        if onScreen then
+            -- Ici tu peux utiliser un événement qui tire, par exemple:
+            -- game:GetService("ReplicatedStorage").ShootEvent:FireServer(screenPos.Position)
+            -- OU juste déplacer le Mouse
+            pcall(function()
+                Mouse.X = screenPos.X
+                Mouse.Y = screenPos.Y
+            end)
+        end
+    end
 end)
-
-setreadonly(mt, true)
-
--- Update cercle FOV
-game:GetService("RunService").RenderStepped:Connect(function()
-	circle.Position = Vector2.new(Mouse.X, Mouse.Y + 36)
-end)
-
-print("✅ Silent Aim activé")
