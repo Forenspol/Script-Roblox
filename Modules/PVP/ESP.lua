@@ -4,23 +4,22 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- Table pour stocker les BillboardGui des joueurs
 local ESPObjects = {}
 
--- Fonction pour créer l'ESP pour un joueur
 local function createESP(player)
     if ESPObjects[player] then return ESPObjects[player] end
     if not player.Character or not player.Character:FindFirstChild("Head") then return end
 
     local head = player.Character:FindFirstChild("Head")
 
+    -- BillboardGui parenté à CoreGui pour que le client le voie
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ESP"
     billboard.Adornee = head
     billboard.Size = UDim2.new(0,120,0,50)
     billboard.StudsOffset = Vector3.new(0,2,0)
     billboard.AlwaysOnTop = true
-    billboard.Parent = player:WaitForChild("PlayerGui") -- côté client
+    billboard.Parent = game.CoreGui -- important
 
     -- Pseudo
     local nameLabel = Instance.new("TextLabel")
@@ -63,7 +62,6 @@ local function createESP(player)
 
     ESPObjects[player] = {Billboard=billboard, NameLabel=nameLabel, DistLabel=distLabel, HealthBar=healthBar}
 
-    -- Mettre à jour à chaque frame
     RunService.RenderStepped:Connect(function()
         if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
             billboard.Enabled = false
@@ -96,7 +94,6 @@ local function createESP(player)
     return ESPObjects[player]
 end
 
--- Mettre à jour tous les joueurs
 local function refreshESP()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
@@ -110,9 +107,7 @@ local function refreshESP()
 end
 
 Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function()
-        refreshESP()
-    end)
+    player.CharacterAdded:Connect(refreshESP)
 end)
 Players.PlayerRemoving:Connect(function(player)
     if ESPObjects[player] then
@@ -122,6 +117,4 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 -- Boucle principale
-RunService.RenderStepped:Connect(function()
-    refreshESP()
-end)
+RunService.RenderStepped:Connect(refreshESP)
