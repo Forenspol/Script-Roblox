@@ -1,73 +1,58 @@
 -- ESP.lua
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 
-local espColor = Color3.fromRGB(255,0,0)
-local selectedPlayers = {}
+local function applyESP(player)
+	if player == LocalPlayer then return end
 
-local function clearESP(character)
-	if not character then return end
-	local folder = character:FindFirstChild("ESPFolder")
-	if folder then folder:Destroy() end
-end
+	local function onCharacter(char)
+		task.wait(0.2)
 
-local function applyESP(character,player)
-	if not character then return end
+		if not _G.ESP_CONFIG
+		or not _G.ESP_CONFIG.Enabled
+		or not _G.ESP_CONFIG.Players[player.Name] then
+			return
+		end
 
-	clearESP(character)
+		if char:FindFirstChild("Highlight") then return end
 
-	local folder = Instance.new("Folder")
-	folder.Name="ESPFolder"
-	folder.Parent=character
+		local head = char:WaitForChild("Head", 5)
+		if not head then return end
 
-	local parts = {}
-	for _,partName in ipairs({"Head","Torso","UpperTorso","LowerTorso","HumanoidRootPart","LeftArm","RightArm","LeftLeg","RightLeg"}) do
-		local part = character:FindFirstChild(partName)
-		if part and part:IsA("BasePart") then table.insert(parts,part) end
+		local h = Instance.new("Highlight")
+		h.FillColor = _G.ESP_CONFIG.Color
+		h.OutlineColor = Color3.new(1,1,1)
+		h.FillTransparency = 0.4
+		h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		h.Parent = char
+
+		local b = Instance.new("BillboardGui")
+		b.Size = UDim2.new(0,200,0,35)
+		b.StudsOffset = Vector3.new(0,2.5,0)
+		b.AlwaysOnTop = true
+		b.Parent = head
+
+		local t = Instance.new("TextLabel", b)
+		t.Size = UDim2.new(1,0,1,0)
+		t.BackgroundTransparency = 1
+		t.Text = player.Name
+		t.TextScaled = true
+		t.TextStrokeTransparency = 0
+		t.TextColor3 = _G.ESP_CONFIG.Color
+		t.Font = Enum.Font.GothamBold
 	end
 
-	for _,part in ipairs(parts) do
-		local box = Instance.new("BoxHandleAdornment")
-		box.Adornee = part
-		box.AlwaysOnTop = true
-		box.Size = part.Size + Vector3.new(0.1,0.1,0.1)
-		box.Color3 = espColor
-		box.Transparency = 0.5
-		box.ZIndex = 10
-		box.Parent = folder
-	end
-
-	local head = character:FindFirstChild("Head")
-	if head then
-		local billboard = Instance.new("BillboardGui")
-		billboard.Size=UDim2.new(0,200,0,40)
-		billboard.StudsOffset=Vector3.new(0,3,0)
-		billboard.AlwaysOnTop=true
-		billboard.Parent=head
-
-		local txt = Instance.new("TextLabel",billboard)
-		txt.Size=UDim2.fromScale(1,1)
-		txt.BackgroundTransparency=1
-		txt.Text=player.Name
-		txt.TextColor3=espColor
-		txt.TextStrokeTransparency=0
-		txt.Font=Enum.Font.GothamBold
-		txt.TextScaled=true
-	end
-end
-
-local function refreshPlayer(player)
 	if player.Character then
-		applyESP(player.Character,player)
+		onCharacter(player.Character)
 	end
+
+	player.CharacterAdded:Connect(onCharacter)
 end
 
-for _,p in ipairs(Players:GetPlayers()) do
-	p.CharacterAdded:Connect(function(char) task.wait(0.5) refreshPlayer(p) end)
-	refreshPlayer(p)
+for _, p in pairs(Players:GetPlayers()) do
+	applyESP(p)
 end
 
-Players.PlayerAdded:Connect(function(p)
-	p.CharacterAdded:Connect(function(char) task.wait(0.5) refreshPlayer(p) end)
-	refreshPlayer(p)
-end)
+Players.PlayerAdded:Connect(applyESP)
+
+print("✅ ESP chargé (menu + couleur HEX)")
