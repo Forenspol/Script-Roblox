@@ -1,152 +1,225 @@
--- ESP.lua complet R6 avec hitbox fixe écran
+-- ESP.lua
+-- ESP complet + Menu de configuration
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
+-- Éviter double chargement
+if _G.ESP_LOADED then return end
+_G.ESP_LOADED = true
+
+-- ===== CONFIG =====
+local Config = {
+	Enabled = true,
+	ShowBox = true,
+	ShowName = true,
+	Color = Color3.fromRGB(255, 0, 0)
+}
+
+-- ===== STOCKAGE =====
 local ESPObjects = {}
 
--- Config globale
-if not _G.ESP_CONFIG then
-    _G.ESP_CONFIG = {
-        Color = Color3.fromRGB(255,0,0), -- couleur par défaut
-        SelectedPlayers = {} -- UserId -> true/false
-    }
+-- ===== GUI CONFIG =====
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+ScreenGui.Name = "ESPConfigGui"
+
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 300, 0, 260)
+Frame.Position = UDim2.new(0.5, -150, 0.5, -130)
+Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Frame.Visible = false
+Frame.Active = true
+Frame.Draggable = true
+Instance.new("UICorner", Frame)
+
+local Title = Instance.new("TextLabel", Frame)
+Title.Size = UDim2.new(1,0,0,40)
+Title.Text = "ESP CONFIG"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 22
+
+-- Bouton fermer
+local CloseBtn = Instance.new("TextButton", Frame)
+CloseBtn.Size = UDim2.new(0,30,0,30)
+CloseBtn.Position = UDim2.new(1,-35,0,5)
+CloseBtn.Text = "X"
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 20
+CloseBtn.BackgroundColor3 = Color3.fromRGB(150,50,50)
+CloseBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", CloseBtn)
+
+CloseBtn.MouseButton1Click:Connect(function()
+	Frame.Visible = false
+end)
+
+-- ===== FONCTION UI =====
+local function createToggle(text, posY, callback)
+	local btn = Instance.new("TextButton", Frame)
+	btn.Size = UDim2.new(0.8,0,0,36)
+	btn.Position = UDim2.new(0.1,0,0,posY)
+	btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 16
+	Instance.new("UICorner", btn)
+
+	local state = true
+	local function refresh()
+		btn.Text = text .. " : " .. (state and "ON" or "OFF")
+	end
+	refresh()
+
+	btn.MouseButton1Click:Connect(function()
+		state = not state
+		refresh()
+		callback(state)
+	end)
+
+	return btn
 end
 
--- Hitbox fixe en pixels
-local HITBOX_WIDTH = 50
-local HITBOX_HEIGHT = 100
-local HITBOX_OFFSET_Y = 3 -- hauteur au-dessus de la Head
+-- Toggles
+createToggle("Box", 50, function(v) Config.ShowBox = v end)
+createToggle("Name", 95, function(v) Config.ShowName = v end)
 
--- Création ESP pour un joueur
+-- ===== COLOR PICKER SIMPLE =====
+local ColorLabel = Instance.new("TextLabel", Frame)
+ColorLabel.Size = UDim2.new(1,0,0,30)
+ColorLabel.Position = UDim2.new(0,0,0,140)
+ColorLabel.Text = "Couleur ESP"
+ColorLabel.TextColor3 = Color3.new(1,1,1)
+ColorLabel.BackgroundTransparency = 1
+ColorLabel.Font = Enum.Font.GothamBold
+ColorLabel.TextSize = 18
+
+local colors = {
+	Color3.fromRGB(255,0,0),
+	Color3.fromRGB(0,255,0),
+	Color3.fromRGB(0,0,255),
+	Color3.fromRGB(255,255,0),
+	Color3.fromRGB(255,0,255),
+	Color3.fromRGB(0,255,255),
+	Color3.fromRGB(255,255,255)
+}
+
+for i, col in ipairs(colors) do
+	local btn = Instance.new("TextButton", Frame)
+	btn.Size = UDim2.new(0,30,0,30)
+	btn.Position = UDim2.new(0, 20 + (i-1)*35, 0, 180)
+	btn.BackgroundColor3 = col
+	btn.Text = ""
+	Instance.new("UICorner", btn)
+
+	btn.MouseButton1Click:Connect(function()
+		Config.Color = col
+	end)
+end
+
+-- ===== CLEAR =====
+local ClearBtn = Instance.new("TextButton", Frame)
+ClearBtn.Size = UDim2.new(0.8,0,0,36)
+ClearBtn.Position = UDim2.new(0.1,0,1,-45)
+ClearBtn.Text = "CLEAR ESP"
+ClearBtn.Font = Enum.Font.GothamBold
+ClearBtn.TextSize = 16
+ClearBtn.BackgroundColor3 = Color3.fromRGB(120,50,50)
+ClearBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", ClearBtn)
+
+-- ===== OUVERTURE DEPUIS MENU PRINCIPAL =====
+_G.OpenESPConfig = function()
+	Frame.Visible = not Frame.Visible
+end
+
+-- ===== ESP LOGIQUE =====
 local function createESP(player)
-    if ESPObjects[player] then return end
-    if not player.Character or not player.Character:FindFirstChild("Head") then return end
+	if player == LocalPlayer then return end
 
-    local head = player.Character:FindFirstChild("Head")
+	local function onCharacter(char)
+		if ESPObjects[player] then
+			ESPObjects[player]:Destroy()
+			ESPObjects[player] = nil
+		end
 
-    -- BillboardGui fixe sur l'écran
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESP"
-    billboard.Adornee = head
-    billboard.Size = UDim2.new(0,HITBOX_WIDTH,0,HITBOX_HEIGHT)
-    billboard.StudsOffset = Vector3.new(0,HITBOX_OFFSET_Y,0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = game.CoreGui
+		local box = Instance.new("BoxHandleAdornment")
+		box.Size = Vector3.new(4,6,2)
+		box.AlwaysOnTop = true
+		box.ZIndex = 5
+		box.Transparency = 0.5
+		box.Color3 = Config.Color
+		box.Adornee = char:WaitForChild("HumanoidRootPart")
+		box.Parent = char
 
-    -- Hitbox rectangle
-    local hitbox = Instance.new("Frame")
-    hitbox.Size = UDim2.new(1,0,1,0)
-    hitbox.Position = UDim2.new(0,0,0,0)
-    hitbox.BackgroundTransparency = 0.7
-    hitbox.BorderSizePixel = 2
-    hitbox.BorderColor3 = _G.ESP_CONFIG.Color
-    hitbox.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    hitbox.Parent = billboard
+		local billboard = Instance.new("BillboardGui")
+		billboard.Size = UDim2.new(0,200,0,50)
+		billboard.StudsOffset = Vector3.new(0,3,0)
+		billboard.AlwaysOnTop = true
+		billboard.Adornee = char:WaitForChild("Head")
+		billboard.Parent = char
 
-    -- Pseudo
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1,0,0,20)
-    nameLabel.Position = UDim2.new(0,0,0,0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = player.Name
-    nameLabel.TextColor3 = _G.ESP_CONFIG.Color
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextSize = 14
-    nameLabel.TextStrokeTransparency = 0.5
-    nameLabel.Parent = billboard
+		local nameLabel = Instance.new("TextLabel", billboard)
+		nameLabel.Size = UDim2.new(1,0,1,0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text = player.Name
+		nameLabel.TextColor3 = Config.Color
+		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.TextSize = 14
 
-    -- Distance
-    local distLabel = Instance.new("TextLabel")
-    distLabel.Size = UDim2.new(1,0,0,15)
-    distLabel.Position = UDim2.new(0,0,0,20)
-    distLabel.BackgroundTransparency = 1
-    distLabel.TextColor3 = _G.ESP_CONFIG.Color
-    distLabel.Font = Enum.Font.Gotham
-    distLabel.TextSize = 12
-    distLabel.TextStrokeTransparency = 0.5
-    distLabel.Text = ""
-    distLabel.Parent = billboard
+		ESPObjects[player] = {
+			Box = box,
+			Billboard = billboard
+		}
+	end
 
-    -- Barre de vie
-    local healthBarBG = Instance.new("Frame")
-    healthBarBG.Size = UDim2.new(1,0,0,5)
-    healthBarBG.Position = UDim2.new(0,0,1,-5)
-    healthBarBG.BackgroundColor3 = Color3.fromRGB(50,50,50)
-    healthBarBG.BorderSizePixel = 0
-    healthBarBG.Parent = billboard
-
-    local healthBar = Instance.new("Frame")
-    healthBar.Size = UDim2.new(1,0,1,0)
-    healthBar.Position = UDim2.new(0,0,0,0)
-    healthBar.BackgroundColor3 = Color3.fromRGB(0,255,0)
-    healthBar.BorderSizePixel = 0
-    healthBar.Parent = healthBarBG
-
-    ESPObjects[player] = {
-        Billboard = billboard,
-        NameLabel = nameLabel,
-        DistLabel = distLabel,
-        HealthBar = healthBar,
-        Hitbox = hitbox
-    }
+	if player.Character then
+		onCharacter(player.Character)
+	end
+	player.CharacterAdded:Connect(onCharacter)
 end
 
--- Mise à jour en temps réel
-local function updateESP()
-    for player, data in pairs(ESPObjects) do
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChildOfClass("Humanoid") then
-            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-            local hrp = player.Character.HumanoidRootPart
-            local enabled = _G.ESP_CONFIG.SelectedPlayers[player.UserId] == true
-            data.Billboard.Enabled = enabled
-            if enabled then
-                -- Distance
-                local dist = math.floor((LocalPlayer.Character.HumanoidRootPart.Position - hrp.Position).Magnitude)
-                data.DistLabel.Text = dist.." studs"
-                -- Couleur
-                data.NameLabel.TextColor3 = _G.ESP_CONFIG.Color
-                data.DistLabel.TextColor3 = _G.ESP_CONFIG.Color
-                data.Hitbox.BorderColor3 = _G.ESP_CONFIG.Color
-                -- Barre de vie
-                local healthRatio = humanoid.Health / humanoid.MaxHealth
-                data.HealthBar.Size = UDim2.new(healthRatio,0,1,0)
-                if healthRatio > 0.5 then
-                    data.HealthBar.BackgroundColor3 = Color3.fromRGB(0,255,0)
-                elseif healthRatio > 0.2 then
-                    data.HealthBar.BackgroundColor3 = Color3.fromRGB(255,255,0)
-                else
-                    data.HealthBar.BackgroundColor3 = Color3.fromRGB(255,0,0)
-                end
-            end
-        else
-            data.Billboard.Enabled = false
-        end
-    end
+-- Appliquer aux joueurs
+for _, p in ipairs(Players:GetPlayers()) do
+	createESP(p)
 end
 
--- Ajout des joueurs
-local function setupPlayer(player)
-    player.CharacterAdded:Connect(function()
-        wait(0.1)
-        createESP(player)
-    end)
-    if player.Character then
-        createESP(player)
-    end
-end
+Players.PlayerAdded:Connect(createESP)
 
-for _, player in ipairs(Players:GetPlayers()) do
-    if player ~= LocalPlayer then setupPlayer(player) end
-end
-Players.PlayerAdded:Connect(function(player)
-    if player ~= LocalPlayer then setupPlayer(player) end
-end)
-Players.PlayerRemoving:Connect(function(player)
-    if ESPObjects[player] then
-        ESPObjects[player].Billboard:Destroy()
-        ESPObjects[player] = nil
-    end
+-- ===== UPDATE LOOP =====
+RunService.RenderStepped:Connect(function()
+	for player, objs in pairs(ESPObjects) do
+		if player.Character and player.Character:FindFirstChild("Humanoid") then
+			local hum = player.Character.Humanoid
+			if hum.Health <= 0 then
+				if objs.Box then objs.Box.Visible = false end
+				if objs.Billboard then objs.Billboard.Enabled = false end
+			else
+				if objs.Box then
+					objs.Box.Visible = Config.ShowBox
+					objs.Box.Color3 = Config.Color
+				end
+				if objs.Billboard then
+					objs.Billboard.Enabled = Config.ShowName
+					if objs.Billboard:FindFirstChildOfClass("TextLabel") then
+						objs.Billboard.TextLabel.TextColor3 = Config.Color
+					end
+				end
+			end
+		end
+	end
 end)
 
-RunService.RenderStepped:Connect(updateESP)
+-- ===== CLEAR =====
+ClearBtn.MouseButton1Click:Connect(function()
+	for _, objs in pairs(ESPObjects) do
+		if objs.Box then objs.Box:Destroy() end
+		if objs.Billboard then objs.Billboard:Destroy() end
+	end
+	table.clear(ESPObjects)
+end)
+
+print("✅ ESP chargé avec menu config")
